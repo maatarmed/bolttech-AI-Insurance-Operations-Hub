@@ -3,13 +3,16 @@ from app.services.extractors import extract_claim_number, is_resume
 WORKFLOWS = ("identity", "policy", "claim_submit", "claim_status", "idle")
 
 POLICY_HINTS = (
-    "policy",
-    "cover",
-    "coverage",
+    "what does",
+    "what are the",
+    "is water",
+    "is flood",
+    "included",
     "exclusion",
     "excluded",
-    "included",
-    "water damage",
+    "coverage",
+    "cover?",
+    "limitation",
     "product a",
     "product b",
     "product c",
@@ -53,10 +56,10 @@ def classify_intent(text: str, active_workflow: str = "idle") -> tuple[str, floa
         return "claim_status", 0.86
     if any(hint in lowered for hint in SUBMIT_HINTS):
         return "claim_submit", 0.88
-    if any(hint in lowered for hint in POLICY_HINTS):
-        return "policy", 0.84
     if any(hint in lowered for hint in IDENTITY_HINTS):
         return "identity", 0.86
+    if any(hint in lowered for hint in POLICY_HINTS):
+        return "policy", 0.84
     if active_workflow in {"claim_submit", "identity", "claim_status", "policy"}:
         return active_workflow, 0.55
     return "idle", 0.2
