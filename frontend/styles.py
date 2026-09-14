@@ -168,6 +168,18 @@ header[data-testid="stHeader"],
   margin-bottom: 0 !important;
   padding-bottom: 18px !important;
 }
+.stElementContainer:has(#ops-shell-marker) + [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1) [data-testid="stForm"] {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface);
+  padding: 8px 10px 10px;
+  margin-bottom: 8px;
+}
+.stElementContainer:has(#ops-shell-marker) + [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1) [data-testid="stForm"] label {
+  font-size: 11px !important;
+  color: var(--muted) !important;
+}
 
 .meta-row { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 12px; }
 .meta-row span:first-child { color: var(--muted); }

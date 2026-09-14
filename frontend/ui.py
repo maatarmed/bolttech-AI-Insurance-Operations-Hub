@@ -183,6 +183,13 @@ def render_sidebar(nav: str, state: dict, session_id: str, api_online: bool) -> 
         unsafe_allow_html=True,
     )
     _copy_session_button(session_id)
+    with st.form("resume_session_form"):
+        pasted = st.text_input("Resume session", placeholder="Paste session UUID")
+        if st.form_submit_button("Load session") and pasted.strip():
+            st.session_state.session_id = pasted.strip()
+            st.session_state.hydrate_session = True
+            st.query_params["session"] = pasted.strip()
+            st.rerun()
 
     st.markdown('<div class="nav-label">Developer</div>', unsafe_allow_html=True)
     st.button(

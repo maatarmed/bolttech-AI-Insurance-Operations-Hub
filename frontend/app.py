@@ -37,17 +37,16 @@ st.set_page_config(
 inject()
 
 if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid4())
+    incoming = (st.query_params.get("session") or "").strip()
+    st.session_state.session_id = incoming or str(uuid4())
+    st.session_state.hydrate_session = bool(incoming)
+WELCOME = (
+    "I can help with policy enquiries, claims, identity verification and claim status. "
+    "Context stays on this session."
+)
+
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {
-            "role": "assistant",
-            "content": (
-                "I can help with policy enquiries, claims, identity verification and claim status. "
-                "Context stays on this session."
-            ),
-        }
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": WELCOME}]
 if "graph_state" not in st.session_state:
     st.session_state.graph_state = {}
 if "nav" not in st.session_state:
@@ -65,10 +64,15 @@ def _load_backend() -> tuple[dict | None, dict | None, str | None]:
         return None, None, str(exc)
 
 
-def _refresh_state() -> None:
+def _refresh_state(*, restore_messages: bool = False) -> None:
     try:
         payload = get_session(st.session_state.session_id)
-        st.session_state.graph_state = payload.get("state") or {}
+        state = payload.get("state") or {}
+        st.session_state.graph_state = state
+        if restore_messages:
+            st.session_state.messages = state.get("messages") or [{"role": "assistant", "content": WELCOME}]
+            st.session_state.visited_workflows = track_visit([], state.get("active_workflow"))
+            st.session_state.activity = []
     except BackendError:
         pass
 
@@ -88,9 +92,13 @@ def submit_turn(text: str) -> None:
     st.rerun()
 
 
+if st.query_params.get("session") != st.session_state.session_id:
+    st.query_params["session"] = st.session_state.session_id
+
 health, ready, backend_error = _load_backend()
-if not backend_error and not st.session_state.graph_state:
-    _refresh_state()
+if not backend_error and (not st.session_state.graph_state or st.session_state.get("hydrate_session")):
+    _refresh_state(restore_messages=bool(st.session_state.get("hydrate_session")))
+    st.session_state.hydrate_session = False
 
 state = st.session_state.graph_state or {}
 api_online = backend_error is None
