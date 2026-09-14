@@ -26,7 +26,7 @@ policy / claim_submit / claim_status / error → compose → END
 
 `classify` runs on every user turn. If the user is mid-claim and asks a policy question, the claim draft is copied into `parked` and the policy subgraph runs. “Resume the claim” restores that snapshot.
 
-Claim status without a verified identity sets `pending_workflow=claim_status` and routes to the identity subgraph. After a successful verify, the hub continues into claim status in the same graph turn when possible.
+Claim status without a verified identity sets `pending_workflow=claim_status` and stores `requested_claim_number` when the user named a claim. After a successful verify, the hub continues into claim status in the same graph turn and looks up that claim.
 
 ## Session continuity
 

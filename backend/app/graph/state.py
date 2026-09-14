@@ -25,6 +25,7 @@ class HubState(TypedDict, total=False):
     parked: dict[str, Any]
     retrieved_docs: list[dict[str, Any]]
     last_claim_number: str | None
+    requested_claim_number: str | None
     pending_workflow: str | None
     reply: str
     error: str | None
@@ -61,10 +62,31 @@ def empty_state() -> dict[str, Any]:
         "parked": {},
         "retrieved_docs": [],
         "last_claim_number": None,
+        "requested_claim_number": None,
         "pending_workflow": None,
         "reply": "",
         "error": None,
     }
+
+
+def _public_messages(values: dict[str, Any]) -> list[dict[str, str]]:
+    messages = []
+    for item in values.get("messages") or []:
+        if isinstance(item, dict):
+            role = item.get("role") or item.get("type")
+            content = item.get("content")
+        else:
+            role = getattr(item, "type", None) or getattr(item, "role", None)
+            content = getattr(item, "content", None)
+        if role in {"human", "user"}:
+            role = "user"
+        elif role in {"ai", "assistant"}:
+            role = "assistant"
+        else:
+            continue
+        if content:
+            messages.append({"role": role, "content": str(content)})
+    return messages[-20:]
 
 
 def public_state(values: dict[str, Any]) -> dict[str, Any]:
@@ -82,4 +104,5 @@ def public_state(values: dict[str, Any]) -> dict[str, Any]:
         "retrieved_docs": values.get("retrieved_docs") or [],
         "last_claim_number": values.get("last_claim_number"),
         "error": values.get("error"),
+        "messages": _public_messages(values),
     }

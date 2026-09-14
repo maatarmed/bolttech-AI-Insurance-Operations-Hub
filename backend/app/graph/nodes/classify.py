@@ -1,5 +1,5 @@
 from app.graph.state import HubState, empty_state
-from app.services.extractors import last_user_text
+from app.services.extractors import extract_claim_number, last_user_text
 from app.services.intent import classify_intent
 
 PARKABLE = {"claim_submit"}
@@ -58,6 +58,7 @@ async def classify_node(state: HubState) -> dict:
 
     parked, switched = _park(merged, intent)
     pending = merged.get("pending_workflow")
+    requested = extract_claim_number(text) or merged.get("requested_claim_number")
     if intent == "claim_status" and not merged.get("identity_verified"):
         pending = "claim_status"
     return {
@@ -69,6 +70,7 @@ async def classify_node(state: HubState) -> dict:
         "parked": parked,
         "switched": switched,
         "pending_workflow": pending,
+        "requested_claim_number": requested,
         "reply": "",
         "error": None,
     }

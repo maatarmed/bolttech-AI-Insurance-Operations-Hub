@@ -31,7 +31,11 @@ async def status_node(state: HubState) -> dict:
         }
 
     text = last_user_text(state.get("messages") or [])
-    claim_number = extract_claim_number(text) or state.get("last_claim_number")
+    claim_number = (
+        extract_claim_number(text)
+        or state.get("requested_claim_number")
+        or state.get("last_claim_number")
+    )
     async with SessionLocal() as session:
         if claim_number:
             claim = await get_claim_by_number(session, claim_number)
@@ -52,6 +56,7 @@ async def status_node(state: HubState) -> dict:
                 "active_workflow": "claim_status",
                 "current_node": "status_found",
                 "last_claim_number": claim.claim_number,
+                "requested_claim_number": None,
                 "pending_workflow": None,
                 "reply": _format_claim(claim),
             }
@@ -69,6 +74,7 @@ async def status_node(state: HubState) -> dict:
                 "active_workflow": "claim_status",
                 "current_node": "status_found",
                 "last_claim_number": claim.claim_number,
+                "requested_claim_number": None,
                 "pending_workflow": None,
                 "reply": _format_claim(claim),
             }
