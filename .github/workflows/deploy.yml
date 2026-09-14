@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push images
+        env:
+          FRONTEND_REPO: ${{ vars.ECR_FRONTEND }}
+          BACKEND_REPO: ${{ vars.ECR_BACKEND }}
+        run: |
+          docker build -t "$FRONTEND_REPO:${{ github.sha }}" frontend
+          docker build -t "$BACKEND_REPO:${{ github.sha }}" backend
+          docker push "$FRONTEND_REPO:${{ github.sha }}"
+          docker push "$BACKEND_REPO:${{ github.sha }}"
+          docker tag "$FRONTEND_REPO:${{ github.sha }}" "$FRONTEND_REPO:latest"
+          docker tag "$BACKEND_REPO:${{ github.sha }}" "$BACKEND_REPO:latest"
+          docker push "$FRONTEND_REPO:latest"
+          docker push "$BACKEND_REPO:latest"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: Terraform apply
+        working-directory: infra/envs/dev
+        env:
+          TF_VAR_frontend_image: ${{ vars.ECR_FRONTEND }}:${{ github.sha }}
+          TF_VAR_backend_image: ${{ vars.ECR_BACKEND }}:${{ github.sha }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+      - name: Roll ECS services
+        run: |
+          aws ecs update-service --cluster ${{ vars.ECS_CLUSTER }} --service ${{ vars.ECS_FRONTEND }} --force-new-deployment
+          aws ecs update-service --cluster ${{ vars.ECS_CLUSTER }} --service ${{ vars.ECS_BACKEND }} --force-new-deployment
