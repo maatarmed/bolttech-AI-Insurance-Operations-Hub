@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.db import get_session
+from app.graph import get_graph
 from app.models import Claim, Customer, Policy
 from app.schemas import HealthResponse, ReadyResponse
 
@@ -23,4 +24,9 @@ async def ready(session: AsyncSession = Depends(get_session)) -> ReadyResponse:
         "policies": await session.scalar(select(func.count()).select_from(Policy)) or 0,
         "claims": await session.scalar(select(func.count()).select_from(Claim)) or 0,
     }
-    return ReadyResponse(status="ok", database="up", seed=seed, graph="pending")
+    graph_status = "up"
+    try:
+        get_graph()
+    except RuntimeError:
+        graph_status = "down"
+    return ReadyResponse(status="ok", database="up", seed=seed, graph=graph_status)

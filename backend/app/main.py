@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.api import api_router
 from app.config import get_settings
 from app.db import Base, engine
+from app.graph import shutdown_graph, startup_graph
 from app.models import Claim, ClaimEvent, Customer, Policy  # noqa: F401
 from app.seed import seed_database
 
@@ -16,7 +17,9 @@ async def lifespan(_: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     if settings.seed_on_startup:
         await seed_database()
+    await startup_graph()
     yield
+    await shutdown_graph()
     await engine.dispose()
 
 
