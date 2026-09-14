@@ -5,10 +5,16 @@ from decimal import Decimal, InvalidOperation
 POLICY_RE = re.compile(r"\bPOL-[ABC]-\d{5}\b", re.IGNORECASE)
 CLAIM_RE = re.compile(r"\bCLM-\d{4}-\d{4}\b", re.IGNORECASE)
 CURRENCY_AMOUNT_RE = re.compile(r"(?:usd|sgd|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)", re.I)
+LABELED_AMOUNT_RE = re.compile(
+    r"(?:estimate|estimated|amount|cost|value)\s*(?:of|:)?\s*\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)",
+    re.I,
+)
 BARE_AMOUNT_RE = re.compile(r"\b([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+\.[0-9]{1,2})\b")
+INTEGER_AMOUNT_RE = re.compile(r"\b([1-9]\d{2,6})\b")
 ISO_DATE_RE = re.compile(r"\b((?:19|20)\d{2})-(\d{1,2})-(\d{1,2})\b")
 SLASH_DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b")
 NAME_RE = re.compile(r"(?:my name is|i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)", re.I)
+DOB_LABEL_RE = re.compile(r"(?:dob|date of birth|born)\s*(?:is|:)?\s*", re.I)
 
 INCIDENT_ALIASES = {
     "water_damage": ("water", "burst pipe", "flooded", "leak"),
@@ -50,7 +56,7 @@ def extract_claim_number(text: str) -> str | None:
 
 
 def extract_amount(text: str) -> Decimal | None:
-    for pattern in (CURRENCY_AMOUNT_RE, BARE_AMOUNT_RE):
+    for pattern in (CURRENCY_AMOUNT_RE, LABELED_AMOUNT_RE, BARE_AMOUNT_RE):
         match = pattern.search(text or "")
         if not match:
             continue
@@ -59,6 +65,14 @@ def extract_amount(text: str) -> Decimal | None:
         except InvalidOperation:
             continue
         if value >= 50:
+            return value
+    for match in INTEGER_AMOUNT_RE.finditer(text or ""):
+        try:
+            value = Decimal(match.group(1))
+        except InvalidOperation:
+            continue
+        raw = int(value)
+        if 50 <= raw <= 10_000_000 and not 1900 <= raw <= 2100:
             return value
     return None
 
@@ -99,11 +113,57 @@ def extract_incident_type(text: str) -> str | None:
     return None
 
 
+LOCATION_RE = re.compile(
+    r"(?:at|in)\s+((?:[A-Z0-9][\w'.-]*)(?:[\s,]+[\w'.-]+){0,8})",
+)
+LOCATION_STOP_RE = re.compile(
+    r"\s+(?:estimate|estimated|amount|because|policy|pol-|water|burst|flooded|on\s+\d)",
+    re.I,
+)
+GENERIC_CLAIM_STARTS = (
+    "i want to file a claim",
+    "i want to submit a claim",
+    "i would like to file a claim",
+    "please file a claim",
+    "file a claim",
+    "submit a claim",
+    "new claim",
+)
+
+
 def extract_location(text: str) -> str | None:
-    match = re.search(r"(?:at|in)\s+([A-Z][\w\s,.-]{3,80})", text or "")
-    if match:
-        return match.group(1).strip(" .")
-    return None
+    match = LOCATION_RE.search(text or "")
+    if not match:
+        return None
+    raw = match.group(1)
+    cut = LOCATION_STOP_RE.search(raw)
+    if cut:
+        raw = raw[: cut.start()]
+    cleaned = raw.strip(" .,")
+    return cleaned if len(cleaned) >= 3 else None
+
+
+def is_generic_claim_start(text: str) -> bool:
+    lowered = (text or "").strip().lower()
+    return lowered in GENERIC_CLAIM_STARTS or (
+        lowered.startswith("i want to") and len(lowered) < 40
+    )
+
+
+NARRATIVE_AFTER_AMOUNT_RE = re.compile(
+    r"(?:estimate(?:d)?|amount|cost|value)\s*(?:of|:)?\s*\$?\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s+(.+)",
+    re.I,
+)
+
+
+def extract_description(text: str) -> str | None:
+    cleaned = (text or "").strip()
+    if len(cleaned) < 12 or is_generic_claim_start(cleaned):
+        return None
+    after_amount = NARRATIVE_AFTER_AMOUNT_RE.search(cleaned)
+    if after_amount and len(after_amount.group(1).strip()) >= 8:
+        return after_amount.group(1).strip(" .")
+    return cleaned
 
 
 def is_affirmative(text: str) -> bool:

@@ -12,9 +12,11 @@ from app.services.extractors import (
     extract_amount,
     extract_date,
     extract_incident_type,
+    extract_description,
     extract_location,
     extract_policy_number,
     is_affirmative,
+    is_generic_claim_start,
     last_user_text,
 )
 
@@ -31,10 +33,11 @@ def _merge_draft(state: HubState, text: str) -> dict:
         draft["location"] = location
     if policy := extract_policy_number(text):
         draft["policy_number"] = policy
-    if len(text.strip()) > 20 and "description" not in draft:
-        draft["description"] = text.strip()
-    elif extract_incident_type(text) and "description" not in draft and len(text.strip()) > 8:
-        draft["description"] = text.strip()
+    description = extract_description(text)
+    if description and (
+        "description" not in draft or is_generic_claim_start(str(draft.get("description") or ""))
+    ):
+        draft["description"] = description
     if state.get("policy_number") and not draft.get("policy_number"):
         draft["policy_number"] = state["policy_number"]
     return draft
