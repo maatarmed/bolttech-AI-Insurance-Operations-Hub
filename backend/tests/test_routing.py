@@ -33,3 +33,16 @@ async def test_classify_parks_claim_when_switching_to_policy():
     assert update["intent"] == "policy"
     assert update["switched"] is True
     assert "claim_submit" in update["parked"]
+
+
+async def test_classify_keeps_requested_claim_across_identity_gate():
+    state = {
+        "messages": [{"role": "user", "content": "What is the status of claim CLM-2026-0001?"}],
+        "active_workflow": "idle",
+        "identity_verified": False,
+        "parked": {},
+    }
+    update = await classify_node(state)
+    assert update["intent"] == "claim_status"
+    assert update["pending_workflow"] == "claim_status"
+    assert update["requested_claim_number"] == "CLM-2026-0001"
