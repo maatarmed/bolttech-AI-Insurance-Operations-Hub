@@ -1,0 +1,7 @@
+aws_region     = "ap-southeast-1"
+name           = "ops-hub-dev"
+db_username    = "hub"
+db_password    = "replace-me"
+openai_api_key = ""
+frontend_image = "ACCOUNT.dkr.ecr.ap-southeast-1.amazonaws.com/ops-hub-dev-frontend:latest"
+backend_image  = "ACCOUNT.dkr.ecr.ap-southeast-1.amazonaws.com/ops-hub-dev-backend:latest"
